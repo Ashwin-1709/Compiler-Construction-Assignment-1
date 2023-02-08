@@ -1,4 +1,5 @@
 #include <bits/stdc++.h>
+#include <iterator>
 #define EPSILON 'E'
 using namespace std;
 
@@ -71,7 +72,7 @@ node* concatenate(node* nfa_1 , node* nfa_2) {
    return nfa_1;
 }
 
-node *star_operator(node *nfa) {
+node *star(node *nfa) {
    set<node*>f = get_final(nfa);
    nfa->flg = true;
    for(auto x : f)
@@ -125,8 +126,7 @@ node *build(int l , int r) {
             rbs.push_back({t , i});
         }
     }
-    node *cur = new node();
-    int pre = -1;
+
     sort(begin(rbs) , end(rbs) , [&](auto a , auto b) {
         if(a[0] != b[0]) return a[0] < b[0];
         return a[1] > b[1];
@@ -135,16 +135,25 @@ node *build(int l , int r) {
     for(auto &[u , v] : rbs) 
         if(depth[u] == 1) nxt.push_back({u , v});
     
+    vector<node*>c;
+    int lst = -1;
     for(auto &[u , v] : nxt) {
         node* nfa = build(u , v);
         if(v + 1 < m) {
-            if(RE[v + 1] == '*') nfa = star_operator(nfa);
+            if(RE[v + 1] == '*') nfa = star(nfa);
             else if(RE[v + 1] == '+') nfa = plus_operator(nfa);
         }
-        if(pre == -1) cur = nfa;
-        else cur = concatenate(cur , nfa);
-        pre = 0;
+        if(lst != -1 and RE[lst + 1] == '|') {
+            auto bck = c.back();
+            c.pop_back();
+            nfa = or_operator(bck, nfa);
+        }
+        lst = v;
+        c.push_back(nfa);
     }
+    node* cur = c[0];
+    for(int i = 1 ; i < (int)c.size() ; i++)
+        cur = concatenate(cur, c[i]);
     return cur;
 }
 
