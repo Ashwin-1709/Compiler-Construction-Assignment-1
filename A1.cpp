@@ -1,10 +1,11 @@
 #include <bits/stdc++.h>
-#include <iterator>
-#define EPSILON 'E'
 using namespace std;
 
+#define len(s) (int)s.length()
+#define EPSILON '#'
+
 string inp , RE;
-int n , m; // strlen
+int n , m;
 
 typedef struct node{
    bool flg;
@@ -15,8 +16,7 @@ typedef struct node{
    };
 } node;
 
-// Simple base case NFA node
-node *base_nfa(char label) {
+node *base(char label) {
    node *s = new node();
    node* f = new node();
    f->flg = true;
@@ -25,19 +25,17 @@ node *base_nfa(char label) {
 }
 
 bool dfs(node *cur , int id) {
-   // EPSILON Transitions from node
-//    cout << "ID : " << id << " " << cur->flg << '\n';
    if(cur->edges.count(EPSILON)) {
        for(auto to : cur->edges[EPSILON])
            if(dfs(to , id))
                return true;
    }
+
    if(id == n) 
        return cur->flg;
    char label = inp[id];
    if(!cur->edges.count(label))
        return false;
-   // label transitions from node
    for(auto to : cur->edges[label]) {
        if(dfs(to , id + 1))
            return true;
@@ -46,25 +44,25 @@ bool dfs(node *cur , int id) {
 }
 
 set<node*> get_final(node *nfa) {
-   set<node*>final_nodes;
+   set<node*>nodes;
    map<node* , int>vis;
-   auto f = [&](auto &&f , node* cur) -> void{
+   function<void(node*)> f = [&](node* cur) {
        vis[cur] = 1;
        if(cur->flg)
-           final_nodes.insert(cur);
+           nodes.insert(cur);
        for(auto vals : cur->edges)
            for(auto to : vals.second)
                if(!vis.count(to))
-                   f(f , to);
+                   f(to);
    };
 
-   f(f , nfa);
-   return final_nodes;
+   f(nfa);
+   return nodes;
 }
 
 node* concatenate(node* nfa_1 , node* nfa_2) {
-   set<node*>final_nodes = get_final(nfa_1);
-   for(auto y : final_nodes) {
+   set<node*>nodes = get_final(nfa_1);
+   for(auto y : nodes) {
        assert(y->flg);
        y->flg = false;
        y->edges[EPSILON].insert(nfa_2);
@@ -75,8 +73,8 @@ node* concatenate(node* nfa_1 , node* nfa_2) {
 node *star(node *nfa) {
    set<node*>f = get_final(nfa);
    nfa->flg = true;
-   for(auto x : f)
-       x->edges[EPSILON].insert(nfa);
+   for(auto u : f)
+       u->edges[EPSILON].insert(nfa);
    return nfa;
 }
 
@@ -85,13 +83,13 @@ node *or_operator(node *a1 , node *a2) {
    s->edges[EPSILON].insert(a1);
    s->edges[EPSILON].insert(a2);
    node *f = new node();
-   for(auto x : get_final(a1)) {
-       x->flg = false;
-       x->edges[EPSILON].insert(f);
+   for(auto u : get_final(a1)) {
+       u->flg = false;
+       u->edges[EPSILON].insert(f);
    }
-   for(auto x : get_final(a2)) {
-       x->flg = false;
-       x->edges[EPSILON].insert(f);
+   for(auto u : get_final(a2)) {
+       u->flg = false;
+       u->edges[EPSILON].insert(f);
    }
    f->flg = true;
    return s;
@@ -99,24 +97,22 @@ node *or_operator(node *a1 , node *a2) {
 
 node* plus_operator(node *a1) {
     set<node*>f = get_final(a1);
-    for(auto x : f)
-        x->edges[EPSILON].insert(a1);
+    for(auto u : f)
+        u->edges[EPSILON].insert(a1);
     return a1;
 }
 
 node *build(int l , int r) {
-    // base case 
-    // cout << "building : " << l << ' ' << r << '\n';
-    if(r - l == 2) {
-        // cout << "sent base nfa at " << l << ' ' << r << " with symbol " << RE[l + 1] << '\n';
-        return base_nfa(RE[l + 1]);
-    }
+    if(r - l == 2) 
+        return base(RE[l + 1]);
+
     stack<int>st;
     vector<array<int , 2>>rbs , nxt;
-    vector<int>depth(m);
+    vector<int>depth(10 * m);
     for(int i = l + 1 ; i < r ; i++) {
         if(RE[i] == '(') {
-            if(!st.empty()) depth[i] = depth[st.top()] + 1;
+            if(!st.empty()) 
+                depth[i] = depth[st.top()] + 1;
             else depth[i] = 1;
             st.push(i);
         }
@@ -132,23 +128,23 @@ node *build(int l , int r) {
         return a[1] > b[1];
     });
     
-    for(auto &[u , v] : rbs) 
-        if(depth[u] == 1) nxt.push_back({u , v});
+    for(auto u : rbs) 
+        if(depth[u[0]] == 1) nxt.push_back(u);
     
     vector<node*>c;
     int lst = -1;
-    for(auto &[u , v] : nxt) {
-        node* nfa = build(u , v);
-        if(v + 1 < m) {
-            if(RE[v + 1] == '*') nfa = star(nfa);
-            else if(RE[v + 1] == '+') nfa = plus_operator(nfa);
+    for(auto u : nxt) {
+        node* nfa = build(u[0] , u[1]);
+        if(u[1] + 1 < m) {
+            if(RE[u[1] + 1] == '*') nfa = star(nfa);
+            else if(RE[u[1] + 1] == '+') nfa = plus_operator(nfa);
         }
         if(lst != -1 and RE[lst + 1] == '|') {
             auto bck = c.back();
             c.pop_back();
             nfa = or_operator(bck, nfa);
         }
-        lst = v;
+        lst = u[1];
         c.push_back(nfa);
     }
     node* cur = c[0];
@@ -159,33 +155,37 @@ node *build(int l , int r) {
 
 
 int32_t main() {
+    freopen("input.txt" , "r" , stdin);
+    freopen("output.txt" , "w+" , stdout);
+
     cin >> RE;
     cin >> inp;
-    m = RE.length();
+    m = len(RE);
+
     node *s = build(0 , m - 1);
-    string temp = inp;
-    string ans = "";
+    
+    string subs = inp , tokens;
     int lst = 0;
-    while(lst < (int)temp.length()) {
-        int mx_match = -1;
-        for(int j = (int)temp.length() - lst  ; j >= 1 ; j--) {
-            inp = temp.substr(lst , j);
-            n = inp.length();
+    while(lst < len(subs)) {
+        int match = -1;
+        for(int j = len(subs) - lst  ; j >= 1 ; j--) {
+            inp = subs.substr(lst , j);
+            n = len(inp);
             if(dfs(s , 0)) {
-                mx_match = j;
+                match = j;
                 break;
             }
         }
-        if(mx_match == -1) {
-            ans += "@";
-            ans += temp[lst];
+        if(match == -1) {
+            tokens.push_back('@');
+            tokens += subs[lst];
             lst++;
         } else {
-            ans += "$";
-            ans += temp.substr(lst , mx_match);
-            lst = lst + mx_match;
+            tokens.push_back('$');
+            tokens += subs.substr(lst , match);
+            lst = lst + match;
         }
     }
-    ans += "#";
-    cout << ans << '\n';
+    tokens.push_back('#');
+    cout << tokens << '\n';
 }
