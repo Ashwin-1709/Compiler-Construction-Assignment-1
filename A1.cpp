@@ -61,13 +61,15 @@ set<node*> get_final(node *nfa) {
 }
 
 node* concatenate(node* nfa_1 , node* nfa_2) {
+   node* s = new node();
+   s->edges[EPSILON].insert(nfa_1);
    set<node*>nodes = get_final(nfa_1);
    for(auto y : nodes) {
        assert(y->flg);
        y->flg = false;
        y->edges[EPSILON].insert(nfa_2);
    }
-   return nfa_1;
+   return s;
 }
 
 node *star(node *nfa) {
@@ -122,11 +124,6 @@ node *build(int l , int r) {
             rbs.push_back({t , i});
         }
     }
-
-    sort(begin(rbs) , end(rbs) , [&](auto a , auto b) {
-        if(a[0] != b[0]) return a[0] < b[0];
-        return a[1] > b[1];
-    });
     
     for(auto u : rbs) 
         if(depth[u[0]] == 1) nxt.push_back(u);
